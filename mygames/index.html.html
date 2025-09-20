@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>لعبة محاسبة - اختبار ممتع</title>
+  <style>
+    :root{
+      --bg1:#0f172a; --bg2:#0ea5a3;
+      --card:#0b1220; --accent:#06b6d4; --muted:#94a3b8;
+      --glass: rgba(255,255,255,0.05);
+      font-family: 'Segoe UI', Tahoma, system-ui, Arial, sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{
+      background: linear-gradient(135deg,var(--bg1) 0%, #083344 30%, #0ea5a3 100%);
+      color: #e6eef6; display:flex; align-items:center; justify-content:center; padding:28px;
+    }
+    .container{width:100%;max-width:640px;background:var(--glass);backdrop-filter:blur(10px);padding:24px;border-radius:20px;box-shadow:0 8px 30px rgba(0,0,0,.4);text-align:center}
+    h1{margin:0 0 12px;font-size:1.8rem;color:#fff}
+    .levels button{display:block;width:100%;margin:10px 0;padding:14px 18px;font-size:1.05rem;border:none;border-radius:12px;background:linear-gradient(90deg,var(--accent),#0891b2);color:#fff;cursor:pointer;transition:.18s;box-shadow:0 6px 18px rgba(2,6,23,0.35)}
+    .levels button:hover{transform:translateY(-4px);filter:brightness(1.03)}
+    .question{margin:20px 0;font-size:1.15rem;direction:rtl;text-align:right}
+    .options button{display:block;width:100%;margin:8px 0;padding:12px;border-radius:10px;background:var(--card);color:#fff;border:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:.12s; text-align:right}
+    .options button:hover{transform:translateX(-6px)}
+    .options button.correct{background:#16a34a !important; border-color:#16a34a99; color:#fff}
+    .options button.wrong{background:#dc2626 !important; border-color:#dc262699; color:#fff}
+    .progress{height:10px;background:rgba(255,255,255,0.06);border-radius:5px;overflow:hidden;margin:15px 0}
+    .progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--accent),#0891b2);transition:.35s}
+    .result{font-size:1.4rem;margin-top:15px}
+    .restart{margin-top:20px;padding:10px 20px;font-size:1rem;border:none;border-radius:10px;background:linear-gradient(90deg,var(--accent),#0891b2);color:#fff;cursor:pointer;box-shadow:0 6px 18px rgba(2,6,23,0.35)}
+    .restart:hover{transform:scale(1.02)}
+    .muted{color:var(--muted);font-size:0.95rem;margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎓 لعبة أسئلة المحاسبة</h1>
+    <div id="game">
+      <div class="levels" id="levelsBlock">
+        <button data-level="easy">سهل</button>
+        <button data-level="medium">متوسط</button>
+        <button data-level="hard">صعب</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Question bank
+    const questions = {
+      easy: [
+        {q:"ما هو الأصل في المحاسبة؟", options:["التزام","موارد تملكها الشركة","مصروف"], answer:1},
+        {q:"ما هي المعادلة المحاسبية الأساسية؟", options:["الأصول = الالتزامات + حقوق الملكية","الأصول = الإيرادات - المصروفات","الأصول = الالتزامات"], answer:0},
+        {q:"في أي قائمة يظهر صافي الربح؟", options:["قائمة المركز المالي","قائمة الدخل","قائمة التدفقات النقدية"], answer:1}
+      ],
+      medium: [
+        {q:"أي مما يلي يعتبر التزام؟", options:["قرض بنكي","معدات","إيراد"], answer:0},
+        {q:"متى يُسجّل الإيراد؟", options:["عند استلام النقد","عند تحقق البيع","عند إصدار الفاتورة"], answer:1},
+        {q:"ما هي طريقة الإهلاك الأكثر شيوعاً؟", options:["القسط الثابت","المضاعف","الإنتاجي"], answer:0}
+      ],
+      hard: [
+        {q:"ماذا يقيس معدل السيولة السريعة؟", options:["القدرة على سداد الالتزامات الجارية","الربحية","كفاءة التشغيل"], answer:0},
+        {q:"ما الحساب الذي يتأثر بخصم الأوراق التجارية؟", options:["أوراق قبض","إيراد","أصل ثابت"], answer:0},
+        {q:"أي مبدأ محاسبي ينص على تسجيل العمليات عند حدوثها؟", options:["مبدأ الاستحقاق","مبدأ النقدية","مبدأ الاستمرارية"], answer:0}
+      ]
+    };
+
+    let currentQuestions = [], current = 0, score = 0, currentLevel = '';
+
+    // wire up level buttons
+    document.getElementById('levelsBlock').addEventListener('click', function(e){
+      const btn = e.target.closest('button[data-level]');
+      if(!btn) return;
+      const lvl = btn.getAttribute('data-level');
+      startGame(lvl);
+    });
+
+    function startGame(level){
+      currentLevel = level;
+      currentQuestions = JSON.parse(JSON.stringify(questions[level])); // clone
+      current = 0; score = 0;
+      showQuestion();
+    }
+
+    function showQuestion(){
+      const q = currentQuestions[current];
+      document.getElementById('game').innerHTML = `
+        <div class="muted">المستوى: ${currentLevel} — سؤال ${current+1} من ${currentQuestions.length}</div>
+        <div class="question">${q.q}</div>
+        <div class="options">${q.options.map((opt,i)=>`<button data-opt="${i}">${opt}</button>`).join('')}</div>
+        <div class="progress"><div class="progress-bar" style="width:${Math.round((current/currentQuestions.length)*100)}%"></div></div>
+      `;
+
+      // attach handlers for option buttons
+      document.querySelectorAll('.options button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectAnswer(parseInt(btn.getAttribute('data-opt')), btn);
+        });
+      });
+    }
+
+    function selectAnswer(choiceIndex, btn){
+      const q = currentQuestions[current];
+      const allBtns = document.querySelectorAll('.options button');
+      // disable buttons
+      allBtns.forEach(b => b.disabled = true);
+
+      if(choiceIndex === q.answer){
+        btn.classList.add('correct');
+        score++;
+        playSound('correct');
+      } else {
+        btn.classList.add('wrong');
+        // reveal correct
+        const correctBtn = Array.from(allBtns).find(b => parseInt(b.getAttribute('data-opt')) === q.answer);
+        if(correctBtn) correctBtn.classList.add('correct');
+        playSound('wrong');
+      }
+
+      // feedback text
+      const fb = document.createElement('div');
+      fb.className = 'muted';
+      fb.textContent = (choiceIndex === q.answer) ? 'إجابة صحيحة!' : `إجابة خاطئة. الإجابة الصحيحة: "${q.options[q.answer]}"`;
+      document.getElementById('game').appendChild(fb);
+
+      setTimeout(() => {
+        current++;
+        if(current < currentQuestions.length) showQuestion();
+        else showResult();
+      }, 900);
+    }
+
+    function showResult(){
+      document.getElementById('game').innerHTML = `
+        <div class="result">انتهيت! درجتك: ${score} من ${currentQuestions.length}</div>
+        <div class="muted">المستوى: ${currentLevel}</div>
+        <button class="restart" id="restartBtn">إعادة اللعب</button>
+      `;
+
+      document.getElementById('restartBtn').addEventListener('click', ()=>{
+        // return to level selection
+        document.getElementById('game').innerHTML = `
+          <div class="levels" id="levelsBlock">
+            <button data-level="easy">سهل</button>
+            <button data-level="medium">متوسط</button>
+            <button data-level="hard">صعب</button>
+          </div>
+        `;
+        // re-wire event listener (delegation)
+        document.getElementById('levelsBlock').addEventListener('click', function(e){
+          const btn = e.target.closest('button[data-level]');
+          if(!btn) return;
+          const lvl = btn.getAttribute('data-level');
+          startGame(lvl);
+        });
+      });
+    }
+
+    // simple sounds using WebAudio (optional)
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const audio = AudioCtx ? new AudioCtx() : null;
+    function playTone(freq, time=0.12, type='sine', vol=0.08){
+      if(!audio) return;
+      const o = audio.createOscillator();
+      const g = audio.createGain();
+      o.type = type; o.frequency.value = freq; g.gain.value = vol;
+      o.connect(g); g.connect(audio.destination);
+      o.start(); g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + time);
+      o.stop(audio.currentTime + time + 0.02);
+    }
+    function playSound(name){
+      try{
+        if(name==='correct') playTone(880,0.18,'sine',0.09);
+        else if(name==='wrong') playTone(220,0.18,'sawtooth',0.08);
+      }catch(e){}
+    }
+  </script>
+</body>
+</html>
